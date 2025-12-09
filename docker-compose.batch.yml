@@ -1,0 +1,31 @@
+services:
+  indexer:
+    build: .
+    container_name: wise-chatter-indexer
+    environment:
+      # Confluence
+      CONFLUENCE_URL: ${CONFLUENCE_URL}
+      CONFLUENCE_USERNAME: ${CONFLUENCE_USERNAME}
+      CONFLUENCE_API_TOKEN: ${CONFLUENCE_API_TOKEN}
+      CONFLUENCE_SPACE_KEYS: ${CONFLUENCE_SPACE_KEYS}
+      # OpenSearch
+      OPENSEARCH_HOST: ${OPENSEARCH_HOST:-localhost}
+      OPENSEARCH_PORT: ${OPENSEARCH_PORT:-9200}
+      OPENSEARCH_USERNAME: ${OPENSEARCH_USERNAME:-admin}
+      OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD}
+      OPENSEARCH_INDEX: ${OPENSEARCH_INDEX:-wise-chatter}
+      OPENSEARCH_USE_SSL: ${OPENSEARCH_USE_SSL:-true}
+      OPENSEARCH_VERIFY_CERTS: ${OPENSEARCH_VERIFY_CERTS:-false}
+      # API Keys
+      COHERE_API_KEY: ${COHERE_API_KEY}
+      # RAG Settings
+      CHUNK_SIZE: ${CHUNK_SIZE:-800}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
+    command: ["run-batch", "--mode", "${INDEX_MODE:-incremental}", "--verbose"]
+    # 외부 네트워크에 연결 (docker-compose.yml의 opensearch 사용 시)
+    networks:
+      - wise-chatter_wise-chatter-net
+
+networks:
+  wise-chatter_wise-chatter-net:
+    external: true

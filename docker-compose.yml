@@ -1,0 +1,91 @@
+services:
+  app:
+    build: .
+    container_name: wise-chatter-app
+    restart: unless-stopped
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    environment:
+      # Confluence
+      CONFLUENCE_URL: ${CONFLUENCE_URL}
+      CONFLUENCE_USERNAME: ${CONFLUENCE_USERNAME}
+      CONFLUENCE_API_TOKEN: ${CONFLUENCE_API_TOKEN}
+      CONFLUENCE_SPACE_KEYS: ${CONFLUENCE_SPACE_KEYS}
+      # OpenSearch
+      OPENSEARCH_HOST: opensearch
+      OPENSEARCH_PORT: 9200
+      OPENSEARCH_USERNAME: ${OPENSEARCH_USERNAME:-admin}
+      OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD}
+      OPENSEARCH_INDEX: ${OPENSEARCH_INDEX:-wise-chatter}
+      OPENSEARCH_USE_SSL: "true"
+      OPENSEARCH_VERIFY_CERTS: "false"
+      # API Keys
+      COHERE_API_KEY: ${COHERE_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      # Slack
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET}
+      # RAG Settings
+      CHUNK_SIZE: ${CHUNK_SIZE:-800}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-100}
+      SEARCH_TOP_K: ${SEARCH_TOP_K:-30}
+      RELEVANCE_THRESHOLD: ${RELEVANCE_THRESHOLD:-60.0}
+      SCORE_THRESHOLD: ${SCORE_THRESHOLD:-0.3}
+      MAX_CONTEXT_DOCS: ${MAX_CONTEXT_DOCS:-10}
+    networks:
+      - wise-chatter-net
+
+  opensearch:
+    image: opensearchproject/opensearch:2.18.0
+    container_name: wise-chatter-opensearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_PASSWORD}
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sk https://localhost:9200 -u admin:${OPENSEARCH_PASSWORD} | grep -q 'cluster_name'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - wise-chatter-net
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.18.0
+    container_name: wise-chatter-dashboards
+    restart: unless-stopped
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    environment:
+      - OPENSEARCH_HOSTS=["https://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=false
+    ports:
+      - "5601:5601"
+    networks:
+      - wise-chatter-net
+    profiles:
+      - dashboards
+
+volumes:
+  opensearch-data:
+
+networks:
+  wise-chatter-net:
+    driver: bridge
